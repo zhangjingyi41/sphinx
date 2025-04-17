@@ -14,10 +14,10 @@ func AuthRouter(server *gin.Engine) {
 		auth.POST("/logout", controller.Logout)
 	}
 
-	oauth := server.Group("/oauth")
-	{
-		oauth.GET("/authorize", controller.Authorize) // 授权端点
-		oauth.POST("/token", controller.Token)        // 令牌端点
-	}
+	// oauth := server.Group("/oauth")
+	// {
+	// 	oauth.GET("/authorize", controller.Authorize) // 授权端点
+	// 	oauth.POST("/token", controller.Token)        // 令牌端点
+	// }
 
 }

@@ -58,7 +58,7 @@ func InitConfig() (err error) {
 	fmt.Println("正在初始化应用配置")
 	var configFilePath string
 	if len(os.Args) < 2 {
-		configFilePath = "configs/dev.yaml"
+		configFilePath = "application.yaml"
 	} else {
 		configFilePath = os.Args[1]
 	}

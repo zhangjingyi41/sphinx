@@ -1,0 +1,6 @@
+go.sum
+
+runtime/logs/*
+
+application.yaml
+
