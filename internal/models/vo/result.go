@@ -1,25 +1,28 @@
 package vo
 
+// Code 错误码类型
+type Code int
+
 type common struct {
-	code int
+	code Code
 	msg  string
 	data interface{}
 }
 
 type failed struct {
-	code int
+	code Code
 	msg  string
 	data interface{}
 }
 type success struct {
-	code int
+	code Code
 	msg  string
 	data interface{}
 }
 
 // 只有Result有对外访问权限
 type Result struct {
-	Code int         `json:"code"`
+	Code Code        `json:"code"`
 	Msg  string      `json:"msg"`
 	Data interface{} `json:"data"`
 }
@@ -72,8 +75,14 @@ func (c *common) Interrupted() *failed {
 }
 
 // 状态码
-func (c *failed) Code(code int) *failed {
-	c.code = code
+func (c *failed) Code(code Code) *failed {
+	// 检查code是否在codeMessages中
+	if _, ok := codeMessages[code]; !ok {
+		c.code = code
+	} else {
+		c.code = code
+		c.msg = codeMessages[code]
+	}
 	return c
 }
 

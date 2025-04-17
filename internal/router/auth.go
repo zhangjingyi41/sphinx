@@ -7,11 +7,10 @@ import (
 )
 
 func AuthRouter(server *gin.Engine) {
-	auth := server.Group("/auth")
+	auth := server.Group("/")
 	{
 		auth.POST("/login", controller.Login)
 		auth.POST("/register", controller.Register)
-		auth.POST("/logout", controller.Logout)
 	}
 
 	// oauth := server.Group("/oauth")
