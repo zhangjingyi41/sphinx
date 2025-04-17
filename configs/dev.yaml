@@ -1,0 +1,30 @@
+name: "sphinx"
+mode: "dev"
+port: 8084
+version: "v0.0.1"
+start_time: "2025-04-09"
+machine_code: "1744168604"
+
+auth:
+  jwt_expire: 3600
+
+log:
+  level: "debug"
+  filename: "sphinx.log"
+  max_size: 200
+  max_age: 30
+  max_backups: 7
+mysql:
+  host: 121.199.164.40
+  port: 23306
+  user: "sphinx"
+  password: "2wyFmefNaEKyaF24"
+  dbname: "sphinx"
+  max_open_conns: 200
+  max_idle_conns: 50
+redis:
+  host: 121.199.164.40
+  port: 6379
+  password: "redis_JAaAKW"
+  db: 0
+  pool_size: 100
