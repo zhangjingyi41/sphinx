@@ -1,7 +1,8 @@
 package controller
 
 import (
-	"fmt"
+	"crypto/sha256" // 新增
+	"encoding/hex"  // 新增
 	"net/http"
 	"regexp"
 	"sphinx/internal/models/qo"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // Login 检查手机号是否存在
@@ -37,17 +37,41 @@ func Login(c *gin.Context) {
 
 	// 如果有密码字段，则进行登录校验
 	if account.Password != "" {
+		// 校验手机账号和密码
+		result, err := service.CheckAccountPassword(account.Phone, account.Password)
+		if err != nil {
+			zap.L().Error("校验账号密码失败", zap.Error(err))
+			c.JSON(http.StatusOK, vo.Builder().Interrupted().Code(vo.RequestParamCheckFailed).Reason("校验账号密码失败").Finished())
+			return
+		}
+		if !result {
+			c.JSON(http.StatusOK, vo.Builder().Interrupted().Code(vo.PasswordIncorrect).Finished())
+			return
+		}
 		// TODO: 实现密码验证逻辑
-		// 模拟登录成功，返回重定向URL
+		// （废弃）模拟登录成功，返回重定向URL
+		// 账号密码登录不需要重定向，直接返回登录成功，因为能用账号密码登录的都是要登录sphinx后台
+		// c.JSON(http.StatusOK, vo.Builder().Ok().Data(map[string]string{
+		// 	"redirectUrl": "http://121.199.164.40:17500",
+		// }).Finished())
+		// 生成token和refreshtoken
+		token, refreshtoken, err := service.GenerateToken(account.Phone)
+		if err != nil {
+			zap.L().Error("生成token失败", zap.Error(err))
+			c.JSON(http.StatusOK, vo.Builder().Interrupted().Code(vo.RequestParamCheckFailed).Reason("生成token失败").Finished())
+			return
+		}
 		c.JSON(http.StatusOK, vo.Builder().Ok().Data(map[string]string{
-			"redirectUrl": "http://example.com/dashboard",
-		}).Msg("登录成功").Finished())
+			"token":        token,
+			"refreshtoken": refreshtoken,
+		}).Finished())
+
+		// c.JSON(http.StatusOK, vo.Builder().Ok().Finished())
 		return
 	}
 
 	// 检查手机号是否存在
 	exists, err := service.CheckPhoneExists(account.Phone)
-	fmt.Printf("exists: %v, err: %v", exists, err)
 	if err != nil {
 		zap.L().Error("检查手机号失败", zap.Error(err))
 		c.JSON(http.StatusOK, vo.Builder().Interrupted().Code(vo.RequestParamCheckFailed).Reason("检查手机号失败").Finished())
@@ -105,15 +129,12 @@ func Register(c *gin.Context) {
 	}
 
 	// 生成密码哈希
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(account.Password), bcrypt.DefaultCost)
-	if err != nil {
-		zap.L().Error("密码哈希失败", zap.Error(err))
-		c.JSON(http.StatusOK, vo.Builder().Interrupted().Code(vo.RequestParamCheckFailed).Reason("密码哈希失败").Finished())
-		return
-	}
+	hasher := sha256.New()
+	hasher.Write([]byte(account.Password))
+	hashedPassword := hex.EncodeToString(hasher.Sum(nil))
 
 	// 保存密码哈希
-	err = service.SaveAccount(account.Phone, string(hashedPassword))
+	err = service.SaveAccount(account.Phone, hashedPassword)
 	if err != nil {
 		zap.L().Error("保存密码失败", zap.Error(err))
 		c.JSON(http.StatusOK, vo.Builder().Interrupted().Code(vo.RequestParamCheckFailed).Reason("保存密码失败").Finished())
