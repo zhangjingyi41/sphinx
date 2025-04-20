@@ -54,11 +54,11 @@ func CheckAccountPassword(phone string, password string) (bool, error) {
 // GenerateToken 生成token和refreshToken
 // 这里可以使用JWT或其他方式生成token和refreshToken
 func GenerateToken(phone string) (token string, refreshToken string, err error) {
-
+	return "", "", nil
 }
 
 // GeneratrAuthorizationCode 生成授权码
-func GeneratrAuthorizationCode(client_id string, user_id int64) (string, error) {
+func GeneratrAuthorizationCode(account string, client_id string, redirect_uri string, scope string, state string) (string, error) {
 	// 生成随机的授权码
 	// 这里可以使用UUID或其他方式生成授权码
 	code := uuid.New().String()
@@ -69,20 +69,17 @@ func GeneratrAuthorizationCode(client_id string, user_id int64) (string, error) 
 		return "", err
 	}
 
-	oac := &dao.OAuthorizationCode{
-		Code:        code,
-		ClientID:    client_id,
-		UserID:      user_id,
-		RedirectURI: oclient.RedirectURI,
-		Scope:       oclient.Scope,
+	sql = "SELECT * FROM users WHERE phone = ?"
+	var user dao.User
+	if err := mysql.AuthDB.Get(&user, sql, account); err != nil {
+		return "", err
 	}
 
-	sql = "INSERT INTO authorization_codes (code, client_id, user_id) VALUES (?, ?, ?)"
-	_, err := mysql.AuthDB.Exec(sql, oac.Code, oac.ClientID, oac.UserID)
+	sql = "INSERT INTO authorization_codes (code, client_id, user_id, redirect_uri, scope) VALUES (?, ?, ?, ?, ?, ?)"
+	_, err := mysql.AuthDB.Exec(sql, code, client_id, user.ID, redirect_uri, scope, state)
 	if err != nil {
 		return "", err
 	}
 
-	// sql := "INSERT INTO authorization_codes (code, client_id, user_id) VALUES (?, ?, ?)"
 	return code, nil
 }

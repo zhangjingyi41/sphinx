@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref,onMounted } from 'vue'
 import { ElMessage, ElLoading } from 'element-plus'
 import { Lock, Phone } from '@element-plus/icons-vue'
 import http from './utils/axios'
@@ -198,6 +198,28 @@ function handleSubmit() {
         }
     }
 }
+
+function handleOuterSizeLoginEvent(){
+    // 处理外部登录事件
+    const params = new URLSearchParams(window.location.search)
+    const clientId = params.get('client_id')
+    const redirectUri = params.get('redirect_uri')
+    const responseType = params.get('response_type')
+    const scope = params.get('scope')
+    const state = params.get('state')
+
+    if (clientId && redirectUri && responseType && scope && state) {
+        // 这里可以根据需要处理这些参数
+        console.log('外部登录参数:', { clientId, redirectUri, responseType, scope, state })
+        alert(`外部登录参数:\nclient_id: ${clientId}\nredirect_uri: ${redirectUri}\nresponse_type: ${responseType}\nscope: ${scope}\nstate: ${state}`)
+    }
+}
+
+onMounted(()=>{
+    // 检查是否有第三方登录参数
+    handleOuterSizeLoginEvent()
+})
+
 </script>
 
 <template>

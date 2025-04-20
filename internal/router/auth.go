@@ -6,11 +6,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func AuthRouter(server *gin.Engine) {
-	auth := server.Group("/")
+func AuthRouter(server *gin.Engine, baseRoute string) {
+	auth := server.Group(baseRoute)
 	{
-		auth.POST("/login", controller.Login)
+		auth.GET("/login", controller.Login)
 		auth.POST("/register", controller.Register)
+		auth.GET("/oauthorization", controller.OAuthorization)
 	}
 
 	// oauth := server.Group("/oauth")

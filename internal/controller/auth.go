@@ -15,16 +15,11 @@ import (
 
 // Login 检查手机号是否存在
 func Login(c *gin.Context) {
-	// 解析JSON请求体
-	var account qo.AccountRequest
-	if err := c.ShouldBindJSON(&account); err != nil {
-		zap.L().Error("解析请求失败", zap.Error(err))
-		c.JSON(http.StatusOK, vo.Builder().Interrupted().Code(vo.RequestParamCheckFailed).Reason("解析请求失败").Finished())
-		return
-	}
+	phone := c.Query("phone")
+	password := c.Query("password")
 
 	// 正则检查手机号格式
-	matched, err := regexp.MatchString("^1[3456789]\\d{9}$", account.Phone)
+	matched, err := regexp.MatchString("^1[3456789]\\d{9}$", phone)
 	if err != nil {
 		zap.L().Error("校验手机号失败", zap.Error(err))
 		c.JSON(http.StatusOK, vo.Builder().Interrupted().Code(vo.RequestParamCheckFailed).Reason("校验手机号失败").Finished())
@@ -36,9 +31,9 @@ func Login(c *gin.Context) {
 	}
 
 	// 如果有密码字段，则进行登录校验
-	if account.Password != "" {
+	if password != "" {
 		// 校验手机账号和密码
-		result, err := service.CheckAccountPassword(account.Phone, account.Password)
+		result, err := service.CheckAccountPassword(phone, password)
 		if err != nil {
 			zap.L().Error("校验账号密码失败", zap.Error(err))
 			c.JSON(http.StatusOK, vo.Builder().Interrupted().Code(vo.RequestParamCheckFailed).Reason("校验账号密码失败").Finished())
@@ -48,30 +43,66 @@ func Login(c *gin.Context) {
 			c.JSON(http.StatusOK, vo.Builder().Interrupted().Code(vo.PasswordIncorrect).Finished())
 			return
 		}
-		// TODO: 实现密码验证逻辑
-		// （废弃）模拟登录成功，返回重定向URL
-		// 账号密码登录不需要重定向，直接返回登录成功，因为能用账号密码登录的都是要登录sphinx后台
-		// c.JSON(http.StatusOK, vo.Builder().Ok().Data(map[string]string{
-		// 	"redirectUrl": "http://121.199.164.40:17500",
-		// }).Finished())
-		// 生成token和refreshtoken
-		token, refreshtoken, err := service.GenerateToken(account.Phone)
-		if err != nil {
-			zap.L().Error("生成token失败", zap.Error(err))
-			c.JSON(http.StatusOK, vo.Builder().Interrupted().Code(vo.RequestParamCheckFailed).Reason("生成token失败").Finished())
+
+		clientID := c.Query("client_id")
+		// 如果没有clientID，就看作是登录到sso服务后台，直接返回登录成功
+		if clientID == "" {
+			// 生成token和refreshtoken
+			token, refreshtoken, err := service.GenerateToken(phone)
+			if err != nil {
+				zap.L().Error("生成token失败", zap.Error(err))
+				c.JSON(http.StatusOK, vo.Builder().Interrupted().Code(vo.RequestParamCheckFailed).Reason("生成token失败").Finished())
+				return
+			}
+			c.JSON(http.StatusOK, vo.Builder().Ok().Data(map[string]string{
+				"token":        token,
+				"refreshtoken": refreshtoken,
+			}).Finished())
+
+			// c.JSON(http.StatusOK, vo.Builder().Ok().Finished())
 			return
 		}
-		c.JSON(http.StatusOK, vo.Builder().Ok().Data(map[string]string{
-			"token":        token,
-			"refreshtoken": refreshtoken,
-		}).Finished())
 
-		// c.JSON(http.StatusOK, vo.Builder().Ok().Finished())
+		// 如果有clientID，就说明是第三方授权，开始走授权的流程
+		redirectURI := c.Query("redirect_uri")
+		responseType := c.Query("response_type")
+		scope := c.Query("scope") // 授权范围
+		state := c.Query("state") // 第三方应用发起请求时提供的随机字符串，用于防止CSRF攻击
+
+		// 检查response type
+		if responseType == "" || (responseType != "code" && responseType != "token") {
+			responseType = "code" // 默认授权码模式
+		}
+
+		// 检查clientID是否有效
+		exist, err := service.CheckClient(clientID, redirectURI, scope)
+		if err != nil {
+			c.JSON(http.StatusOK, vo.Builder().Interrupted().Code(vo.RequestParamCheckFailed).Finished())
+			return
+		}
+		if !exist {
+			c.JSON(http.StatusOK, vo.Builder().Interrupted().Code(vo.InvalidClient).Finished())
+			return
+		}
+		// clientid有效，生成授权码
+		// code, err := service.GenerateAuthorizationCode(clientID, phone, redirectURI, responseType, scope, state)
+		code, err := service.GeneratrAuthorizationCode(phone, clientID, redirectURI, scope, state)
+		if err != nil {
+			zap.L().Error("生成授权码失败", zap.Error(err))
+			c.JSON(http.StatusOK, vo.Builder().Interrupted().Code(vo.RequestParamCheckFailed).Reason("生成授权码失败").Finished())
+			return
+		}
+		// 响应授权码
+		c.JSON(http.StatusOK, vo.Builder().Ok().Data(map[string]string{
+			"code":         code,
+			"client_id":    clientID,
+			"redirect_uri": redirectURI,
+		}).Finished())
 		return
 	}
 
 	// 检查手机号是否存在
-	exists, err := service.CheckPhoneExists(account.Phone)
+	exists, err := service.CheckPhoneExists(phone)
 	if err != nil {
 		zap.L().Error("检查手机号失败", zap.Error(err))
 		c.JSON(http.StatusOK, vo.Builder().Interrupted().Code(vo.RequestParamCheckFailed).Reason("检查手机号失败").Finished())
